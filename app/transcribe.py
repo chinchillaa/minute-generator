@@ -24,16 +24,17 @@ class Config:
     """
 
 
-def transcribe_audio(audio_file):
+def transcribe_audio(audio_file: UploadFile) -> str:
     """
     Transcribe an audio file using the Whisper model in OpenAI's API.
     """
     openai.api_key = Config.OAI_API_KEY
     transcript = openai.Audio.transcribe("whisper-1", audio_file)
+
     return transcript["text"]
 
 
-def summarize_text(transcription_text):
+def summarize_text(transcription_text: str) -> str:
     """
     Summarize the given text using the Chat Completion API in OpenAI.
     """
@@ -45,11 +46,15 @@ def summarize_text(transcription_text):
             {"role": "user", "content": transcription_text},
         ],
     )
-    return response["choices"][0]["message"]["content"]
+    summary = response["choices"][0]["message"]["content"]
+
+    return summary
 
 
 def main():
-    """Run the meeting transcription and summarization app."""
+    """
+    Run the meeting transcription and summarization app.
+    """
     st.title("Meeting Transcription and Summarization")
 
     audio_file = st.file_uploader(
