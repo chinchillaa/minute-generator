@@ -1,3 +1,6 @@
+import openai
+
+
 def summarize_text(
     transcription_text: str, open_ai_api_key: str, system_prompt: str
 ) -> str:

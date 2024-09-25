@@ -1,6 +1,18 @@
 from transcribe import transcribe_audio
 from summarize import summarize_text
 
+import os
+
+import math
+import numpy as np
+import pandas as pd
+
+import torch
+import openai
+import whisper
+
+import streamlit as st
+
 
 class Config:
     OAI_API_KEY = os.environ["OPENAI_API_KEY"]
