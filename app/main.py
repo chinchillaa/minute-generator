@@ -25,6 +25,7 @@ class Config:
     * 今後取るべき具体的なアクションを記述してください。
     * 議事録以外の文章は記述しないでください。
     """
+    CHUNK_SIZE = 25 * 1000 * 1000
 
 
 def main():
@@ -39,7 +40,9 @@ def main():
 
     if audio_file is not None:
         with st.spinner("Transcribing..."):
-            transcription = transcribe_audio(audio_file, Config.OAI_API_KEY)
+            transcription = transcribe_audio(
+                audio_file, Config.OAI_API_KEY, Config.CHUNK_SIZE
+            )
 
         st.header("Transcript")
         st.text_area("", transcription, height=300)
