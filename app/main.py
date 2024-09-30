@@ -1,6 +1,7 @@
 from transcribe import transcribe_audio
 from summarize import summarize_text
 
+from io import BytesIO
 import os
 
 import math
@@ -55,6 +56,15 @@ def main():
 
             st.header("Meeting Summary")
             st.text_area("", summary, height=200)
+
+            # 要約を.txtファイルとしてダウンロード可能にする
+            txt_bytes = BytesIO(summary.encode("utf-8"))
+            st.download_button(
+                label="Download Summary as .txt",
+                data=txt_bytes,
+                file_name="meeting_summary.txt",
+                mime="text/plain",
+            )
 
 
 if __name__ == "__main__":
