@@ -1,75 +1,69 @@
-import os
-
-import math
-import numpy as np
-import pandas as pd
-
-import torch
 import openai
-import whisper
-
+from typing import List, Optional
+from io import BytesIO
+import os
+from streamlit.runtime.uploaded_file_manager import (
+    UploadedFile,
+)  # StreamlitのUploadedFileクラス
 import streamlit as st
+import tempfile
 
 
-class Config:
-    OAI_API_KEY = os.environ["OPENAI_API_KEY"]
-    SYSTEM_PROMPT = """
-以下の要件に基づき、文章を整理し議事録としてまとめてください。
+# def transcribe_audio(audio_file: Optional[UploadedFile], open_ai_api_key: str) -> str:
+#     """
+#     Transcribe an audio file using the Whisper model in OpenAI's API.
+#     """
+#     openai.api_key = open_ai_api_key
+#     transcript = openai.Audio.transcribe("whisper-1", audio_file)
 
-【要件】
-* 現状を把握し、まとめてください。
-* 上記に対する考えをまとめてください。
-* 今後取るべき具体的なアクションを記述してください。
-* 議事録以外の文章は記述しないでください。
-"""
+#     return transcript["text"]
 
 
-def transcribe_audio(audio_file):
+def transcribe_audio(
+    audio_file: Optional[UploadedFile], open_ai_api_key: str, chunk_size: int
+) -> str:
+    """UploadedFile型のオーディオファイルをWhisperで文字起こし"""
+    openai.api_key = open_ai_api_key
+
+    # アップロードされたファイルが25MBを超える場合に分割
+    chunks = split_file(audio_file, chunk_size)
+
+    # 元のファイルの拡張子を取得
+    _, ext = os.path.splitext(audio_file.name)
+
+    # 各チャンクを順番に処理して、すべての結果をつなげる
+    full_transcript = ""
+    for i, chunk in enumerate(chunks):
+        st.write(f"Transcribing chunk {i+1}/{len(chunks)}")
+        # 一時ファイルを作成し、OpenAI APIに渡す
+        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as temp_file:
+            temp_file.write(
+                chunk.getbuffer()
+            )  # `BytesIO`オブジェクトから一時ファイルに書き込み
+            temp_file.flush()  # バッファをディスクに書き込む
+
+        # 一時ファイルを開き、Whisperに渡す
+        try:
+            with open(temp_file.name, "rb") as f:
+                result = openai.Audio.transcribe("whisper-1", f)
+                full_transcript += result["text"] + "\n"
+        finally:
+            # 一時ファイルを削除
+            os.remove(temp_file.name)
+
+    return full_transcript
+
+
+def split_file(audio_file: UploadedFile, chunk_size: int) -> List[BytesIO]:
     """
-    Transcribe an audio file using the Whisper model in OpenAI's API.
+    Divide an audio file into chunks.
     """
-    openai.api_key = Config.OAI_API_KEY
-    transcript = openai.Audio.transcribe("whisper-1", audio_file)
-    return transcript["text"]
+    file_size = audio_file.size
+    audio_data = audio_file.read()
 
+    chunks = [
+        BytesIO(audio_data[i : i + chunk_size])
+        for i in range(0, len(audio_data), chunk_size)
+    ]
 
-def summarize_text(transcription_text):
-    """
-    Summarize the given text using the Chat Completion API in OpenAI.
-    """
-    openai.api_key = Config.OAI_API_KEY
-    response = openai.ChatCompletion.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": Config.SYSTEM_PROMPT},
-            {"role": "user", "content": transcription_text},
-        ],
-    )
-    return response["choices"][0]["message"]["content"]
-
-
-def main():
-    """Run the meeting transcription and summarization app."""
-    st.title("Meeting Transcription and Summarization")
-
-    audio_file = st.file_uploader(
-        "Upload a meeting audio file", type=["mp3", "wav", "m4a"]
-    )
-
-    if audio_file is not None:
-        with st.spinner("Transcribing..."):
-            transcription = transcribe_audio(audio_file)
-
-        st.header("Transcript")
-        st.text_area("", transcription, height=300)
-
-        if st.button("Summarize"):
-            with st.spinner("Summarizing..."):
-                summary = summarize_text(transcription)
-
-            st.header("Meeting Summary")
-            st.text_area("", summary, height=200)
-
-
-if __name__ == "__main__":
-    main()
+    return chunks
